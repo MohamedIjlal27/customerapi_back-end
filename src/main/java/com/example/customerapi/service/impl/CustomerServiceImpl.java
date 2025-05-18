@@ -1,6 +1,5 @@
 package com.example.customerapi.service.impl;
 
-import com.example.customerapi.dto.*;
 import com.example.customerapi.entity.*;
 import com.example.customerapi.repository.CustomerRepository;
 import com.example.customerapi.repository.CountryRepository;

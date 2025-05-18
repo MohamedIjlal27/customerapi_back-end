@@ -27,13 +27,13 @@ public class CustomerController {
         this.customerService = customerService;
     }
 
-    @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
+    @PostMapping(value = "/create", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     @Operation(summary = "Create a new customer")
     public ResponseEntity<Customer> createCustomer(@RequestBody CustomerCreateRequest request) {
         return ResponseEntity.ok(customerService.createCustomer(request));
     }
 
-    @GetMapping(produces = MediaType.APPLICATION_JSON_VALUE)
+    @GetMapping(value = "/list", produces = MediaType.APPLICATION_JSON_VALUE)
     @Operation(summary = "Get all customers (paginated)")
     public ResponseEntity<Map<String, Object>> getAllCustomers(
             @RequestParam(defaultValue = "0") int page,
@@ -53,32 +53,32 @@ public class CustomerController {
         ));
     }
 
-    @GetMapping(value = "/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
+    @GetMapping(value = "/view/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
     @Operation(summary = "Get a customer by ID")
     public ResponseEntity<Customer> getCustomerById(@PathVariable Long id) {
         return ResponseEntity.ok(customerService.getCustomerById(id));
     }
 
-    @PutMapping(value = "/{id}", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
+    @PutMapping(value = "/update/{id}", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     @Operation(summary = "Update a customer")
     public ResponseEntity<Customer> updateCustomer(@PathVariable Long id, @RequestBody CustomerCreateRequest request) {
         return ResponseEntity.ok(customerService.updateCustomer(id, request));
     }
 
-    @DeleteMapping("/{id}")
+    @DeleteMapping(value = "/delete/{id}")
     @Operation(summary = "Delete a customer")
     public ResponseEntity<Void> deleteCustomer(@PathVariable Long id) {
         customerService.deleteCustomer(id);
         return ResponseEntity.ok().build();
     }
 
-    @PostMapping(value = "/bulk-create", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PostMapping(value = "/bulk/create", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @Operation(summary = "Bulk create customers from Excel file")
     public ResponseEntity<List<Customer>> bulkCreateCustomers(@RequestParam("file") MultipartFile file) {
         return ResponseEntity.ok(customerService.bulkCreateCustomers(file));
     }
 
-    @PostMapping(value = "/bulk-update", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PostMapping(value = "/bulk/update", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @Operation(summary = "Bulk update customers from Excel file")
     public ResponseEntity<List<Customer>> bulkUpdateCustomers(@RequestParam("file") MultipartFile file) {
         return ResponseEntity.ok(customerService.bulkUpdateCustomers(file));
