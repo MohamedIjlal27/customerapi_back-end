@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/customers")
@@ -33,9 +34,23 @@ public class CustomerController {
     }
 
     @GetMapping(produces = MediaType.APPLICATION_JSON_VALUE)
-    @Operation(summary = "Get all customers")
-    public ResponseEntity<List<Customer>> getAllCustomers() {
-        return ResponseEntity.ok(customerService.getAllCustomers());
+    @Operation(summary = "Get all customers (paginated)")
+    public ResponseEntity<Map<String, Object>> getAllCustomers(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "1000") int size) {
+        List<Customer> customers = customerService.getAllCustomersPaginated(page, size);
+        long totalCount = customerService.getTotalCustomerCount();
+        int totalPages = (int) Math.ceil((double) totalCount / size);
+        
+        return ResponseEntity.ok(Map.of(
+            "customers", customers,
+            "totalCount", totalCount,
+            "currentPage", page,
+            "pageSize", size,
+            "totalPages", totalPages,
+            "hasNext", page < totalPages - 1,
+            "hasPrevious", page > 0
+        ));
     }
 
     @GetMapping(value = "/{id}", produces = MediaType.APPLICATION_JSON_VALUE)

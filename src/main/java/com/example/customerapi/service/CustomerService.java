@@ -9,6 +9,8 @@ import java.util.List;
 public interface CustomerService {
     Customer createCustomer(CustomerCreateRequest request);
     List<Customer> getAllCustomers();
+    List<Customer> getAllCustomersPaginated(int page, int size);
+    long getTotalCustomerCount();
     Customer getCustomerById(Long id);
     Customer updateCustomer(Long id, CustomerCreateRequest request);
     void deleteCustomer(Long id);
