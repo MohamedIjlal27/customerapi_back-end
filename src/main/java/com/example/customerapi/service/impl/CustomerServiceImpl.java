@@ -54,12 +54,10 @@ public class CustomerServiceImpl implements CustomerService {
     @Override
     @Transactional
     public Customer createCustomer(CustomerCreateRequest request) {
-        // Check if customer with same NIC number exists
         if (customerRepository.existsByNicNumber(request.getNicNumber())) {
             throw new RuntimeException("Customer with NIC number " + request.getNicNumber() + " already exists");
         }
 
-        // Create main customer
         Customer customer = new Customer();
         customer.setName(request.getName());
         customer.setDateOfBirth(request.getDateOfBirth());
@@ -67,7 +65,6 @@ public class CustomerServiceImpl implements CustomerService {
         customer.setCreatedAt(LocalDateTime.now());
         customer.setUpdatedAt(LocalDateTime.now());
 
-        // Handle mobile numbers
         if (request.getMobileNumbers() != null) {
             List<MobileNumber> mobileNumbers = new ArrayList<>();
             for (MobileNumberCreateRequest mobileRequest : request.getMobileNumbers()) {
@@ -79,7 +76,6 @@ public class CustomerServiceImpl implements CustomerService {
             customer.setMobileNumbers(mobileNumbers);
         }
 
-        // Handle addresses
         if (request.getAddresses() != null) {
             List<Address> addresses = new ArrayList<>();
             for (AddressCreateRequest addressRequest : request.getAddresses()) {
@@ -88,11 +84,9 @@ public class CustomerServiceImpl implements CustomerService {
                 address.setAddressLine2(addressRequest.getAddressLine2());
                 address.setCustomer(customer);
 
-                // Handle city and country
                 if (addressRequest.getCity() != null) {
                     CityCreateRequest cityRequest = addressRequest.getCity();
                     
-                    // Check if country exists
                     Country country;
                     if (cityRequest.getCountry() != null) {
                         CountryCreateRequest countryRequest = cityRequest.getCountry();
@@ -117,7 +111,6 @@ public class CustomerServiceImpl implements CustomerService {
                         throw new RuntimeException("Country information is required for city: " + cityRequest.getName());
                     }
 
-                    // Check if city exists
                     Optional<City> existingCity = cityRepository.findByNameAndCountryId(cityRequest.getName(), country.getId());
                     City city;
                     if (existingCity.isPresent()) {
@@ -139,18 +132,14 @@ public class CustomerServiceImpl implements CustomerService {
             customer.setAddresses(addresses);
         }
 
-        // Save the main customer first to get an ID
         customer = customerRepository.save(customer);
 
-        // Handle family members
         if (request.getFamilyMembers() != null) {
             for (FamilyMemberCreateRequest memberRequest : request.getFamilyMembers()) {
-                // Check if family member with same NIC number exists
                 if (customerRepository.existsByNicNumber(memberRequest.getNicNumber())) {
                     throw new RuntimeException("Family member with NIC number " + memberRequest.getNicNumber() + " already exists");
                 }
 
-                // Create family member as a new customer
                 Customer familyMember = new Customer();
                 familyMember.setName(memberRequest.getName());
                 familyMember.setDateOfBirth(memberRequest.getDateOfBirth());
@@ -158,31 +147,24 @@ public class CustomerServiceImpl implements CustomerService {
                 familyMember.setCreatedAt(LocalDateTime.now());
                 familyMember.setUpdatedAt(LocalDateTime.now());
 
-                // Save the family member
                 familyMember = customerRepository.save(familyMember);
-
-                // Add the family relationship
                 customer.addFamilyMember(familyMember);
             }
         }
 
-        // Save the final customer with all relationships
         return customerRepository.save(customer);
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<Customer> getAllCustomers() {
-        return getAllCustomersPaginated(0, 1000); // Default to first 1000 records
+        return getAllCustomersPaginated(0, 1000);
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<Customer> getAllCustomersPaginated(int page, int size) {
-        // Create Pageable object for pagination
         Pageable pageable = PageRequest.of(page, size);
-        
-        // Get paginated customers
         Page<Customer> customerPage = customerRepository.findAllWithPagination(pageable);
         List<Customer> customers = customerPage.getContent();
         
@@ -190,12 +172,10 @@ public class CustomerServiceImpl implements CustomerService {
             return customers;
         }
 
-        // Get IDs for batch loading
         List<Long> customerIds = customers.stream()
             .map(Customer::getId)
             .collect(Collectors.toList());
 
-        // Load addresses in batch
         List<Customer> customersWithAddresses = customerRepository.findAllWithAddressesByIds(customerIds);
         customers.forEach(customer -> {
             customersWithAddresses.stream()
@@ -204,7 +184,6 @@ public class CustomerServiceImpl implements CustomerService {
                 .ifPresent(c -> customer.setAddresses(c.getAddresses()));
         });
         
-        // Load mobile numbers in batch
         List<Customer> customersWithMobileNumbers = customerRepository.findAllWithMobileNumbersByIds(customerIds);
         customers.forEach(customer -> {
             customersWithMobileNumbers.stream()
@@ -213,7 +192,6 @@ public class CustomerServiceImpl implements CustomerService {
                 .ifPresent(c -> customer.setMobileNumbers(c.getMobileNumbers()));
         });
         
-        // Load family members in batch
         List<Customer> customersWithFamilyMembers = customerRepository.findAllWithFamilyMembersByIds(customerIds);
         customers.forEach(customer -> {
             customersWithFamilyMembers.stream()
@@ -243,25 +221,19 @@ public class CustomerServiceImpl implements CustomerService {
     public Customer updateCustomer(Long id, CustomerCreateRequest request) {
         Customer customer = getCustomerById(id);
         
-        // Update basic information
         customer.setName(request.getName());
         customer.setDateOfBirth(request.getDateOfBirth());
         customer.setNicNumber(request.getNicNumber());
         customer.setUpdatedAt(LocalDateTime.now());
 
-        // Handle mobile numbers
         if (request.getMobileNumbers() != null) {
-            // Get existing mobile numbers
             List<String> existingNumbers = customer.getMobileNumbers().stream()
                 .map(MobileNumber::getNumber)
                 .collect(Collectors.toList());
             
-            // Clear existing mobile numbers
             customer.getMobileNumbers().clear();
             
-            // Add new mobile numbers
             for (MobileNumberCreateRequest mobileRequest : request.getMobileNumbers()) {
-                // Check if the number already exists for another customer
                 if (!existingNumbers.contains(mobileRequest.getNumber()) && 
                     customerRepository.existsByMobileNumber(mobileRequest.getNumber())) {
                     throw new RuntimeException("Mobile number " + mobileRequest.getNumber() + " is already registered to another customer");
@@ -274,23 +246,18 @@ public class CustomerServiceImpl implements CustomerService {
             }
         }
 
-        // Handle addresses
         if (request.getAddresses() != null) {
-            // Clear existing addresses
             customer.getAddresses().clear();
             
-            // Add new addresses
             for (AddressCreateRequest addressRequest : request.getAddresses()) {
                 Address address = new Address();
                 address.setAddressLine1(addressRequest.getAddressLine1());
                 address.setAddressLine2(addressRequest.getAddressLine2());
                 address.setCustomer(customer);
 
-                // Handle city and country
                 if (addressRequest.getCity() != null) {
                     CityCreateRequest cityRequest = addressRequest.getCity();
                     
-                    // Check if country exists
                     Country country;
                     if (cityRequest.getCountry() != null) {
                         CountryCreateRequest countryRequest = cityRequest.getCountry();
@@ -315,7 +282,6 @@ public class CustomerServiceImpl implements CustomerService {
                         throw new RuntimeException("Country information is required for city: " + cityRequest.getName());
                     }
 
-                    // Check if city exists
                     Optional<City> existingCity = cityRepository.findByNameAndCountryId(cityRequest.getName(), country.getId());
                     City city;
                     if (existingCity.isPresent()) {
@@ -336,22 +302,17 @@ public class CustomerServiceImpl implements CustomerService {
             }
         }
 
-        // Handle family members
         if (request.getFamilyMembers() != null) {
-            // Remove existing family member relationships
             List<Customer> existingFamilyMembers = new ArrayList<>(customer.getFamilyMembers());
             for (Customer familyMember : existingFamilyMembers) {
                 customer.removeFamilyMember(familyMember);
             }
             
-            // Add new family members
             for (FamilyMemberCreateRequest memberRequest : request.getFamilyMembers()) {
-                // Check if family member with same NIC number exists
                 if (customerRepository.existsByNicNumber(memberRequest.getNicNumber())) {
                     throw new RuntimeException("Family member with NIC number " + memberRequest.getNicNumber() + " already exists");
                 }
 
-                // Create family member as a new customer
                 Customer familyMember = new Customer();
                 familyMember.setName(memberRequest.getName());
                 familyMember.setDateOfBirth(memberRequest.getDateOfBirth());
@@ -359,15 +320,11 @@ public class CustomerServiceImpl implements CustomerService {
                 familyMember.setCreatedAt(LocalDateTime.now());
                 familyMember.setUpdatedAt(LocalDateTime.now());
 
-                // Save the family member
                 familyMember = customerRepository.save(familyMember);
-
-                // Add the family relationship
                 customer.addFamilyMember(familyMember);
             }
         }
 
-        // Save and return the updated customer
         return customerRepository.save(customer);
     }
 
@@ -377,22 +334,17 @@ public class CustomerServiceImpl implements CustomerService {
         Customer customer = customerRepository.findById(id)
             .orElseThrow(() -> new EntityNotFoundException("Customer not found with id: " + id));
         
-        // Remove family member relationships
         List<Customer> familyMembers = new ArrayList<>(customer.getFamilyMembers());
         for (Customer familyMember : familyMembers) {
             customer.removeFamilyMember(familyMember);
         }
         
-        // Remove relationships where this customer is a family member of others
         List<Customer> familyOf = new ArrayList<>(customer.getFamilyOf());
         for (Customer parent : familyOf) {
             parent.removeFamilyMember(customer);
         }
         
-        // Save the customer to update the relationships
         customerRepository.save(customer);
-        
-        // Now we can safely delete the customer
         customerRepository.deleteById(id);
     }
 
@@ -400,7 +352,7 @@ public class CustomerServiceImpl implements CustomerService {
     @Transactional
     public List<Customer> bulkCreateCustomers(MultipartFile file) {
         List<Customer> customers = new ArrayList<>();
-        int batchSize = 1000; // Process 1000 records at a time
+        int batchSize = 1000;
         int totalProcessed = 0;
         int totalCreated = 0;
         
@@ -408,7 +360,6 @@ public class CustomerServiceImpl implements CustomerService {
             Sheet sheet = workbook.getSheetAt(0);
             int totalRows = sheet.getPhysicalNumberOfRows();
             
-            // Process in batches
             for (int rowIndex = 1; rowIndex < totalRows; rowIndex += batchSize) {
                 int endIndex = Math.min(rowIndex + batchSize, totalRows);
                 List<Customer> batchCustomers = new ArrayList<>();
@@ -424,22 +375,17 @@ public class CustomerServiceImpl implements CustomerService {
                         }
                         totalProcessed++;
                     } catch (Exception e) {
-                        // Log error but continue processing
                         System.err.println("Error processing row " + i + ": " + e.getMessage());
                     }
                 }
                 
-                // Save batch
                 if (!batchCustomers.isEmpty()) {
                     List<Customer> savedCustomers = customerRepository.saveAll(batchCustomers);
                     customers.addAll(savedCustomers);
                     totalCreated += savedCustomers.size();
                 }
                 
-                // Clear batch list to free memory
                 batchCustomers.clear();
-                
-                // Log progress
                 System.out.println("Processed " + totalProcessed + " of " + totalRows + " records. Created " + totalCreated + " customers.");
             }
         } catch (IOException e) {
@@ -452,10 +398,8 @@ public class CustomerServiceImpl implements CustomerService {
     private Customer processCustomerRow(Row row) {
         Customer customer = new Customer();
         
-        // Set basic information
         customer.setName(getCellValueAsString(row.getCell(0)));
         
-        // Handle date of birth
         String dateStr = getCellValueAsString(row.getCell(1));
         try {
             LocalDate dateOfBirth = LocalDate.parse(dateStr);
@@ -469,7 +413,6 @@ public class CustomerServiceImpl implements CustomerService {
         
         customer.setNicNumber(getCellValueAsString(row.getCell(2)));
         
-        // Handle mobile number
         String mobileNumber = getCellValueAsString(row.getCell(3));
         if (mobileNumber != null && !mobileNumber.trim().isEmpty()) {
             MobileNumber mobile = new MobileNumber();
@@ -478,7 +421,6 @@ public class CustomerServiceImpl implements CustomerService {
             customer.getMobileNumbers().add(mobile);
         }
         
-        // Handle address
         String addressLine1 = getCellValueAsString(row.getCell(4));
         String addressLine2 = getCellValueAsString(row.getCell(5));
         String cityName = getCellValueAsString(row.getCell(6));
@@ -490,7 +432,6 @@ public class CustomerServiceImpl implements CustomerService {
             countryName != null && !countryName.trim().isEmpty() && 
             countryCode != null && !countryCode.trim().isEmpty()) {
             
-            // Create or get country
             Country country;
             Optional<Country> existingCountry = countryRepository.findByCode(countryCode);
             if (existingCountry.isPresent()) {
@@ -502,7 +443,6 @@ public class CustomerServiceImpl implements CustomerService {
                 country = countryRepository.save(country);
             }
             
-            // Create or get city
             City city;
             Optional<City> existingCity = cityRepository.findByNameAndCountryId(cityName, country.getId());
             if (existingCity.isPresent()) {
@@ -514,7 +454,6 @@ public class CustomerServiceImpl implements CustomerService {
                 city = cityRepository.save(city);
             }
             
-            // Create address
             Address address = new Address();
             address.setAddressLine1(addressLine1);
             address.setAddressLine2(addressLine2);
@@ -523,7 +462,6 @@ public class CustomerServiceImpl implements CustomerService {
             customer.getAddresses().add(address);
         }
         
-        // Handle family member
         String familyMemberName = getCellValueAsString(row.getCell(9));
         String familyMemberDob = getCellValueAsString(row.getCell(10));
         String familyMemberNic = getCellValueAsString(row.getCell(11));
@@ -532,7 +470,6 @@ public class CustomerServiceImpl implements CustomerService {
             familyMemberDob != null && !familyMemberDob.trim().isEmpty() && 
             familyMemberNic != null && !familyMemberNic.trim().isEmpty()) {
             
-            // Create family member
             Customer familyMember = new Customer();
             familyMember.setName(familyMemberName);
             try {
@@ -548,10 +485,7 @@ public class CustomerServiceImpl implements CustomerService {
             familyMember.setCreatedAt(LocalDateTime.now());
             familyMember.setUpdatedAt(LocalDateTime.now());
             
-            // Save family member first
             familyMember = customerRepository.save(familyMember);
-            
-            // Add family relationship
             customer.addFamilyMember(familyMember);
         }
         
@@ -569,7 +503,7 @@ public class CustomerServiceImpl implements CustomerService {
             Sheet sheet = workbook.getSheetAt(0);
             
             for (Row row : sheet) {
-                if (row.getRowNum() == 0) continue; // Skip header row
+                if (row.getRowNum() == 0) continue;
                 
                 String nicNumber = getCellValueAsString(row.getCell(2));
                 Customer existingCustomer = customerRepository.findByNicNumber(nicNumber)
