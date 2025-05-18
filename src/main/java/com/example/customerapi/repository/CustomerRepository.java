@@ -32,16 +32,31 @@ public interface CustomerRepository extends JpaRepository<Customer, Long> {
     @Query("SELECT c FROM Customer c LEFT JOIN FETCH c.familyMembers")
     List<Customer> findAllWithFamilyMembers();
 
-    @Query(value = "SELECT c FROM Customer c ORDER BY c.id",
-           countQuery = "SELECT COUNT(c) FROM Customer c")
+    @Query("SELECT DISTINCT c FROM Customer c " +
+           "LEFT JOIN FETCH c.addresses a " +
+           "LEFT JOIN FETCH a.city ci " +
+           "LEFT JOIN FETCH ci.country")
+    List<Customer> findAllWithAddressesAndCity();
+
+    @Query(value = "SELECT c FROM Customer c " +
+           "LEFT JOIN FETCH c.addresses a " +
+           "LEFT JOIN FETCH a.city ci " +
+           "LEFT JOIN FETCH ci.country",
+           countQuery = "SELECT COUNT(DISTINCT c) FROM Customer c")
     Page<Customer> findAllWithPagination(Pageable pageable);
 
-    @Query("SELECT c FROM Customer c LEFT JOIN FETCH c.addresses WHERE c.id IN :ids")
+    @Query("SELECT DISTINCT c FROM Customer c " +
+           "LEFT JOIN FETCH c.addresses " +
+           "WHERE c.id IN :ids")
     List<Customer> findAllWithAddressesByIds(@Param("ids") List<Long> ids);
 
-    @Query("SELECT c FROM Customer c LEFT JOIN FETCH c.mobileNumbers WHERE c.id IN :ids")
+    @Query("SELECT DISTINCT c FROM Customer c " +
+           "LEFT JOIN FETCH c.mobileNumbers " +
+           "WHERE c.id IN :ids")
     List<Customer> findAllWithMobileNumbersByIds(@Param("ids") List<Long> ids);
 
-    @Query("SELECT c FROM Customer c LEFT JOIN FETCH c.familyMembers WHERE c.id IN :ids")
+    @Query("SELECT DISTINCT c FROM Customer c " +
+           "LEFT JOIN FETCH c.familyMembers " +
+           "WHERE c.id IN :ids")
     List<Customer> findAllWithFamilyMembersByIds(@Param("ids") List<Long> ids);
 } 

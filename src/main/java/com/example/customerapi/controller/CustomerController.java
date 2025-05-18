@@ -6,6 +6,8 @@ import com.example.customerapi.service.CustomerService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.io.ByteArrayResource;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -82,5 +84,17 @@ public class CustomerController {
     @Operation(summary = "Bulk update customers from Excel file")
     public ResponseEntity<List<Customer>> bulkUpdateCustomers(@RequestParam("file") MultipartFile file) {
         return ResponseEntity.ok(customerService.bulkUpdateCustomers(file));
+    }
+
+    @GetMapping(value = "/bulk/template", produces = MediaType.APPLICATION_OCTET_STREAM_VALUE)
+    @Operation(summary = "Download customer data template for bulk update")
+    public ResponseEntity<ByteArrayResource> downloadCustomerTemplate() {
+        byte[] excelFile = customerService.generateCustomerTemplate();
+        
+        return ResponseEntity.ok()
+            .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=customer_template.xlsx")
+            .contentType(MediaType.APPLICATION_OCTET_STREAM)
+            .contentLength(excelFile.length)
+            .body(new ByteArrayResource(excelFile));
     }
 } 

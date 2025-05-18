@@ -17,6 +17,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -24,6 +25,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.Optional;
+import java.util.Map;
 
 import com.example.customerapi.dto.CustomerCreateRequest;
 import com.example.customerapi.dto.MobileNumberCreateRequest;
@@ -518,6 +520,104 @@ public class CustomerServiceImpl implements CustomerService {
             throw new RuntimeException("Error processing Excel file", e);
         }
         return updatedCustomers;
+    }
+
+    @Override
+    @Transactional
+    public byte[] generateCustomerTemplate() {
+        try (Workbook workbook = new XSSFWorkbook()) {
+            Sheet sheet = workbook.createSheet("Customers");
+            
+            // Create header row
+            Row headerRow = sheet.createRow(0);
+            String[] headers = {
+                "Name", "Date of Birth", "NIC Number", "Mobile Number",
+                "Address Line 1", "Address Line 2", "City", "Country Name", "Country Code",
+                "Family Member Name", "Family Member DOB", "Family Member NIC"
+            };
+            
+            for (int i = 0; i < headers.length; i++) {
+                Cell cell = headerRow.createCell(i);
+                cell.setCellValue(headers[i]);
+            }
+            
+            // Get all customers with their related data in separate queries
+            List<Customer> customers = customerRepository.findAllWithAddressesAndCity();
+            List<Customer> customersWithMobileNumbers = customerRepository.findAllWithMobileNumbers();
+            List<Customer> customersWithFamilyMembers = customerRepository.findAllWithFamilyMembers();
+            
+            // Create a map for quick lookup
+            Map<Long, Customer> customerMap = customers.stream()
+                .collect(Collectors.toMap(Customer::getId, c -> c));
+            
+            // Merge mobile numbers
+            customersWithMobileNumbers.forEach(c -> {
+                Customer customer = customerMap.get(c.getId());
+                if (customer != null) {
+                    customer.setMobileNumbers(c.getMobileNumbers());
+                }
+            });
+            
+            // Merge family members
+            customersWithFamilyMembers.forEach(c -> {
+                Customer customer = customerMap.get(c.getId());
+                if (customer != null) {
+                    customer.setFamilyMembers(c.getFamilyMembers());
+                }
+            });
+            
+            int rowNum = 1;
+            for (Customer customer : customers) {
+                Row row = sheet.createRow(rowNum++);
+                
+                // Basic customer info
+                row.createCell(0).setCellValue(customer.getName());
+                row.createCell(1).setCellValue(customer.getDateOfBirth().toString());
+                row.createCell(2).setCellValue(customer.getNicNumber());
+                
+                // Mobile numbers
+                if (!customer.getMobileNumbers().isEmpty()) {
+                    row.createCell(3).setCellValue(customer.getMobileNumbers().get(0).getNumber());
+                }
+                
+                // Address
+                if (!customer.getAddresses().isEmpty()) {
+                    Address address = customer.getAddresses().get(0);
+                    row.createCell(4).setCellValue(address.getAddressLine1());
+                    row.createCell(5).setCellValue(address.getAddressLine2());
+                    
+                    if (address.getCity() != null) {
+                        row.createCell(6).setCellValue(address.getCity().getName());
+                        
+                        if (address.getCity().getCountry() != null) {
+                            row.createCell(7).setCellValue(address.getCity().getCountry().getName());
+                            row.createCell(8).setCellValue(address.getCity().getCountry().getCode());
+                        }
+                    }
+                }
+                
+                // Family members
+                if (!customer.getFamilyMembers().isEmpty()) {
+                    Customer familyMember = customer.getFamilyMembers().get(0);
+                    row.createCell(9).setCellValue(familyMember.getName());
+                    row.createCell(10).setCellValue(familyMember.getDateOfBirth().toString());
+                    row.createCell(11).setCellValue(familyMember.getNicNumber());
+                }
+            }
+            
+            // Auto-size columns
+            for (int i = 0; i < headers.length; i++) {
+                sheet.autoSizeColumn(i);
+            }
+            
+            // Write to byte array
+            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+            workbook.write(outputStream);
+            return outputStream.toByteArray();
+            
+        } catch (IOException e) {
+            throw new RuntimeException("Error generating customer template", e);
+        }
     }
 
     private String getCellValueAsString(Cell cell) {

@@ -16,4 +16,5 @@ public interface CustomerService {
     void deleteCustomer(Long id);
     List<Customer> bulkCreateCustomers(MultipartFile file);
     List<Customer> bulkUpdateCustomers(MultipartFile file);
+    byte[] generateCustomerTemplate();
 } 
